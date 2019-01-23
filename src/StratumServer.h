@@ -125,7 +125,7 @@ protected:
   string fileLastNotifyTime_;
 
   time_t kMaxJobsLifeTime_;
-  const time_t kMiningNotifyInterval_;
+  time_t kMiningNotifyInterval_;
 
   time_t lastJobSendTime_;
 
@@ -152,6 +152,7 @@ public:
   void markAllJobsAsStale();
   
   void setMaxJobDelay (const time_t maxJobDelay);
+  void setMiningNotifyInterval(time_t miningNotifyInterval);
   void sendMiningNotify(shared_ptr<StratumJobEx> exJob);
   shared_ptr<StratumJobEx> getStratumJobEx(const uint64_t jobId);
   shared_ptr<StratumJobEx> getLatestStratumJobEx();
