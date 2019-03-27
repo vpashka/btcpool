@@ -432,7 +432,8 @@ int ServerBitcoin::checkShare(const ShareBitcoin &share,
 			<< std::endl
 			<< std::endl;
 
-
+  std::cerr << " diff: " << TargetToDiff(blkHash) << std::endl;
+  std::cerr << " netdiff: " << TargetToDiff(sjob->networkTarget_) << std::endl;
 
   DEBUG_SHARE++;
   if( DEBUG_SHARE % 200 == 0 )
