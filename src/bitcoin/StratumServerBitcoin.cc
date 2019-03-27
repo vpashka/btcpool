@@ -31,6 +31,7 @@
 #include "hash.h"
 #include "primitives/block.h"
 
+#include <iostream>
 #include <boost/make_unique.hpp>
 
 using namespace std;
@@ -186,6 +187,8 @@ void StratumJobExBitcoin::generateCoinbaseTx(std::vector<char> *coinbaseBin,
                                       const string &extraNonce2Hex,
                                       string *userCoinbaseInfo) {
   string coinbaseHex;
+
+
   const string extraNonceStr = Strings::Format("%08x%s", extraNonce1, extraNonce2Hex.c_str());
   StratumJobBitcoin* sjob = dynamic_cast<StratumJobBitcoin*>(sjob_);
   string coinbase1 = sjob->coinbase1_;
@@ -199,10 +202,22 @@ void StratumJobExBitcoin::generateCoinbaseTx(std::vector<char> *coinbaseBin,
   }
 #endif
 
+  std::cerr << "** extraNonce1Hex: " << Strings::Format("%08x",extraNonce1) << std::endl;
+  std::cerr << "** extraNonce2Hex: " << extraNonce2Hex << std::endl;
+  std::cerr << "** extraNonceStr: " << extraNonceStr << std::endl;
+  std::cerr << "** COINBASE1: " << coinbase1 << std::endl;
+  std::cerr << "** COINBASE2: " << sjob->coinbase2_ << std::endl;
+
   coinbaseHex.append(coinbase1);
   coinbaseHex.append(extraNonceStr);
   coinbaseHex.append(sjob->coinbase2_);
   Hex2Bin((const char *)coinbaseHex.c_str(), *coinbaseBin);
+
+  std::cerr << "** COINBASEHEX: " << coinbaseHex << std::endl;
+
+  string coinbinhex;
+  Bin2Hex(*coinbaseBin, coinbinhex);
+  std::cerr << "** COINBASBIN2HEX: " << coinbinhex << std::endl;
 }
 
 void StratumJobExBitcoin::generateBlockHeader(CBlockHeader *header,
@@ -217,6 +232,24 @@ void StratumJobExBitcoin::generateBlockHeader(CBlockHeader *header,
                                        string *userCoinbaseInfo) {
   generateCoinbaseTx(coinbaseBin, extraNonce1, extraNonce2Hex, userCoinbaseInfo);
 
+ std::cerr << Strings::Format("*** [generateBlockHeader] "
+			" exNonce1: %d(%08x)",extraNonce1, extraNonce1)
+			 << Strings::Format(" exNonce2: ..., nonce: %d(%08x)",  nonce, nonce)
+			 << Strings::Format(" nTime: %d(%08x)", nTime, nTime)
+			<< Strings::Format(" versionMask: (%d)%08x",versionMask, versionMask)
+			<< Strings::Format(" version: (%d)%08x",nVersion, nVersion)
+			<< Strings::Format(" nBits: (%d)%08x",nBits, nBits)
+			<< Strings::Format(" VERSION^MASK: (%d)%08x",(nVersion ^ versionMask), (nVersion ^ versionMask))
+			<< endl;
+
+
+  std::cerr << "** PREVBLOCKHASH: " << hashPrevBlock.ToString() << std::endl;
+
+  std::cerr << "** MERKLE: ";
+  for( const auto& m: merkleBranch )
+	  std::cerr << m.ToString() << " ";
+  std::cerr << std::endl;
+
   header->hashPrevBlock = hashPrevBlock;
   header->nVersion      = (nVersion ^ versionMask);
   header->nBits         = nBits;
@@ -226,12 +259,16 @@ void StratumJobExBitcoin::generateBlockHeader(CBlockHeader *header,
   // hashMerkleRoot
   header->hashMerkleRoot = Hash(coinbaseBin->begin(), coinbaseBin->end());
 
+  std::cerr << "** BEGIN MERKLE ROOT (COINBASE HASH): " << header->hashMerkleRoot.ToString() << std::endl;
+
   for (const uint256 & step : merkleBranch) {
     header->hashMerkleRoot = Hash(BEGIN(header->hashMerkleRoot),
                                   END  (header->hashMerkleRoot),
                                   BEGIN(step),
                                   END  (step));
   }
+
+  std::cerr << "** END MERKLE ROOT: " << header->hashMerkleRoot.ToString() << std::endl;
 }
 ////////////////////////////////// ServerBitcoin ///////////////////////////////
 ServerBitcoin::ServerBitcoin(const int32_t shareAvgSeconds, const libconfig::Config &config)
@@ -338,6 +375,8 @@ void ServerBitcoin::sendSolvedShare2Kafka(const FoundBlock *foundBlock,
   kafkaProducerSolvedShare_->produce(buf.data(), buf.size());
 }
 
+static int DEBUG_SHARE = 0;
+
 int ServerBitcoin::checkShare(const ShareBitcoin &share,
                        const uint32 extraNonce1, const string &extraNonce2Hex,
                        const uint32_t nTime, const uint32_t nonce,
@@ -374,10 +413,34 @@ int ServerBitcoin::checkShare(const ShareBitcoin &share,
                                 sjob->nBits_, sjob->nVersion_, nTime, nonce,
                                 versionMask,
                                 userCoinbaseInfo);
+
+  std::cerr << "** checkShare: COINBASEBIN(HEX): ";
+  for( const auto& c: coinbaseBin )
+	  cerr << Strings::Format("%x ", c);
+  std::cerr << endl;
+
+
   uint256 blkHash = header.GetHash();
 
   arith_uint256 bnBlockHash     = UintToArith256(blkHash);
   arith_uint256 bnNetworkTarget = UintToArith256(sjob->networkTarget_);
+
+  std::cerr << "** HASH: " << blkHash.ToString()
+			<< std::endl
+			<< "** BNHASH: " << bnBlockHash.ToString()
+			<< std::endl
+			<< std::endl
+			<< std::endl;
+
+
+
+  DEBUG_SHARE++;
+  if( DEBUG_SHARE % 200 == 0 )
+  {
+	  std::abort();
+	  return 0;
+  }
+
 
   //
   // found new block

@@ -29,6 +29,7 @@
 
 #include <boost/make_unique.hpp>
 #include <event2/buffer.h>
+#include <iostream>
 
 ///////////////////////////////// StratumMinerBitcoin ////////////////////////////////
 StratumMinerBitcoin::StratumMinerBitcoin(StratumSessionBitcoin &session,
@@ -90,6 +91,7 @@ void StratumMinerBitcoin::handleRequest_Submit(const string &idStr, const JsonNo
     return;
   }
 
+
   uint8_t shortJobId;
   if (isNiceHashClient_) {
     shortJobId = (uint8_t) (jparams.children()->at(1).uint64() % 10);
@@ -104,6 +106,15 @@ void StratumMinerBitcoin::handleRequest_Submit(const string &idStr, const JsonNo
   if (jparams.children()->size() >= 6) {
     versionMask = jparams.children()->at(5).uint32_hex();
   }
+
+  std::cerr << "******** SUBMIT: jobID=" << shortJobId
+	   << " extraNonce2=" << jparams.children()->at(2).str()
+	   << " extraNonce2_uint64" << extraNonce2
+	   << " nTime=" << nTime << " nTimeStr: " << jparams.children()->at(3).str()
+	   << " nonce=" << nonce << " nonceStr: " << jparams.children()->at(4).str()
+	   << " versionMask=" << versionMask << "  versionMaskStr: " << jparams.children()->at(5).str()
+	   << std::endl;
+
 
   handleRequest_Submit(idStr, shortJobId, extraNonce2, nonce, nTime, versionMask);
 }
@@ -155,10 +166,11 @@ void StratumMinerBitcoin::handleExMessage_SubmitShare(const std::string &exMessa
   const uint64_t fullExtraNonce2 = ((uint64_t)sessionId << 32) | (uint64_t)exNonce2;
 
   // debug
-  DLOG(INFO) << Strings::Format("[agent] shortJobId: %02x, sessionId: %08x, "
+  std::cerr << Strings::Format("[agent] shortJobId: %02x, sessionId: %08x, "
                                 "exNonce2: %016llx, nonce: %08x, time: %08x, versionMask: %08x",
                                 shortJobId, (uint32_t)sessionId,
-                                fullExtraNonce2, nonce, timestamp, versionMask);
+								fullExtraNonce2, nonce, timestamp, versionMask)
+			<< std::endl;
 
   handleRequest_Submit("null", shortJobId, fullExtraNonce2, nonce, timestamp, versionMask);
 }
@@ -176,6 +188,7 @@ void StratumMinerBitcoin::handleRequest_Submit(const string &idStr,
 
   const string extraNonce2Hex = Strings::Format("%016llx", extraNonce2);
   assert(extraNonce2Hex.length() / 2 == kExtraNonce2Size_);
+
 
   auto localJob = session.findLocalJob(shortJobId);
   if (localJob == nullptr) {
